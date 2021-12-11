@@ -1,0 +1,462 @@
+---
+title: "Data and EDA"
+author: "Ebenezer_Francis_Tolu"
+date: "11/22/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Set working directory
+```{r}
+setwd("C://Users//enkum//OneDrive - University of Texas at El Paso//Desktop//Intro_Data_Collaboratiosn//Project-first-phase")
+```
+
+
+
+# Load Data
+
+```{r}
+dat <- read.csv("dat2020.csv", header=T, na.strings = c("", "NA"))
+```
+
+
+
+# Data Cleaning
+
+```{r}
+#----------Removes non-predictive variables--------------------------------#
+# We remove the variables: Satellite, Externalld, Email, DateTime, CardData
+# Q16, Q18, Q21, Q27, Q27,Q29, Q36, Q37, Q38, Q39
+
+
+# print the columns names and create a vector the variables to be removed
+col_names <-as.data.frame(colnames(dat))
+
+rem <- c(2,3,4,5,6,45,47,50:56,77,79,86:104)
+
+dat0 <- dat[ ,-rem]
+
+dat1 <- dat0[!(rowSums(is.na(dat0[ , ])) == 67), ]
+
+```
+
+
+
+
+```{r}
+# Some Questions have multiple responses, merge them and rename
+# We will merge :
+# -Q6 Race
+# -Q7 Gender 
+# -Q8 Pronous
+# -Q11 College/school
+# -Q12 Prior to COVID-19 stay at home orders did you commute to campus?
+# -Q24 
+# -Q25
+
+# merging Races into one column and deleting the others
+split_Race <- split(dat1[, c(7:13)], seq(nrow(dat1[, c(7:13)])))
+dat1[, 7] <- unlist(lapply(split_Race, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) )))); 
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab) ], 
+                        collapse = "" )}))
+
+dat2 <- dat1[ , -c(8:13)]
+
+
+
+# Merging Gender into one column and deleting others: use dat2
+
+split_gender <- split(dat2[, c(8:13)], seq(nrow(dat2[, c(8:13)])))
+dat2[,8] <- unlist(lapply(split_gender, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat3 <- dat2[ , -c(9:13)]
+
+
+# Merging Pronouns into one column and deleting others: use dat3
+ 
+split_pronoun <- split(dat3[, c(9:13)], seq(nrow(dat3[, c(9:13)])))
+dat3[,9] <- unlist(lapply(split_pronoun, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat4 <- dat3[ , -c(10:13)]
+
+
+# Merging -Q11 College/school into one column and deleting others: use dat4
+ 
+split_col <- split(dat4[, c(12:20)], seq(nrow(dat4[, c(12:20)])))
+dat4[,12] <- unlist(lapply(split_col, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat5 <- dat4[ , -c(13:20)]
+
+# Merging  -Q24 into one column and deleting others: use dat5
+
+split_Q24 <- split(dat5[, c(22:31)], seq(nrow(dat5[, c(22:31)])))
+dat5[, 22] <- unlist(lapply(split_Q24, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat6 <- dat5[ , -c(23:31)]
+
+
+# Merging  -Q25 into one column and deleting others: use dat5
+
+split_Q25 <- split(dat6[, c(23:29)], seq(nrow(dat6[, c(23:29)])))
+dat6[,23] <- unlist(lapply(split_Q25, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat7 <- dat6[ , -c(24:29)]
+
+
+
+#Rename the columns
+
+data0 <- dat7
+
+colnames(data0) <- c('RespondentId','Enrollment','Employ_Status','Place_of_work',
+                     'Hours_work_per_week','Age','Race','Gender','Pronouns', 
+                     'total_income','academic_level','College','mode_of_transport',
+                     'reliability_of_transport', 'independent_stay','have_dependents',
+                     'head_of_houshold','place_of_stay','permanent_address_past12',
+                     'night_elsewhere_no_permanent_add','experience_of_homelessness',
+                     'any_benefit_support','federal_Aid_past6','food_security_past12',
+                     'not_enough_money_for_food','eat_less_cause_not_enough_money',
+                     'go_hungry_because_not_enough_money_past12',
+                     'expenditure_change','income_change','financial_aid_change',
+                     'debt_change')
+
+
+```
+
+
+
+
+
+```{r, echo = FALSE}
+
+datN <- data0
+## Re-coding of some of the variables 
+
+#  Re-coding the Race with multiple response as multi-ratio with 8
+datN$Race <- as.integer(datN$Race)
+datN$Race[datN$Race > 7] <- 8
+table(datN$Race, useNA = "ifany")
+
+#  Re-coding the Gender as prefer not to answer-0 1- female, 2-Male and 3-others
+datN$Gender <- as.integer(datN$Gender)
+datN$Gender[datN$Gender > 2] <- 3
+table(datN$Gender, useNA = "ifany")
+
+#  Re-coding Pronoun as 1- He, 2-she and 3-others
+datN$Pronouns <- as.numeric(datN$Pronouns)
+datN$Pronouns[datN$Pronouns > 2] <- 3
+table(datN$Pronouns, useNA = "ifany")
+
+# We re-code the total income base on US income distribution
+# < 29,999 as 1, between 30,000 and 49,999 as 2, between 50,000 and 89,999 as 3
+# and above 90,000 as 4
+datN$total_income[datN$total_income ==2]  <- 1
+datN$total_income[datN$total_income ==3]  <- 1
+datN$total_income[datN$total_income ==4]  <- 2
+datN$total_income[datN$total_income ==5]  <- 2
+datN$total_income[datN$total_income ==6]  <- 3
+datN$total_income[datN$total_income ==7]  <- 3
+datN$total_income[datN$total_income ==8]  <- 3
+datN$total_income[datN$total_income ==9]  <- 3
+datN$total_income[datN$total_income ==10] <- 4
+datN$total_income[datN$total_income ==11] <- 4
+
+table(datN$total_income, useNA = "ifany")
+
+# We re-code the academic level by adding Graduate and Special: Professional(CP)
+datN$academic_level[datN$academic_level== 7] <-5
+table(datN$academic_level, exclude = "ifany")
+
+# We coded student with multiple college as 10
+datN$College <- as.integer(datN$College)
+datN$College[datN$College > 9] <- 10
+table(datN$College, useNA = "ifany")
+
+# We re-code car(someone drives and pick you) and carpool as 2, Bus and Trolley 
+#as 3, Bike as 4, Walk as 5 and other as 6:
+datN$mode_of_transport[datN$mode_of_transport == 3] <- 2
+datN$mode_of_transport[datN$mode_of_transport == 4] <- 3
+datN$mode_of_transport[datN$mode_of_transport == 6] <- 3
+datN$mode_of_transport[datN$mode_of_transport == 5] <- 4
+datN$mode_of_transport[datN$mode_of_transport == 7] <- 5
+datN$mode_of_transport[datN$mode_of_transport == 8] <- 6
+table(datN$mode_of_transport, useNA = "ifany")
+
+
+#Q23 We re-code  0-No support receive  and 1-support receive 
+datN$any_benefit_support <- as.integer(datN$any_benefit_support)
+datN$any_benefit_support[datN$any_benefit_support > 0] <- 1
+table(datN$any_benefit_support, useNA = "ifany")
+
+# We re-code Federal student Aid as : Grant and scholarship(no paying back) as 1, 
+# Loan and Emergency Loan(pay back) as 3
+# Multiple Federal student Aid  as 4
+# And others as 5
+datN$federal_Aid_past6 <-as.integer(datN$federal_Aid_past6)
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 5 ] <- 1
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 4 ] <- 3
+datN$federal_Aid_past6[datN$federal_Aid_past6 > 6 ] <- 4
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 6 ] <- 5
+table(datN$federal_Aid_past6, useNA = "ifany")
+
+
+```
+
+
+
+
+```{r}
+# Edit the Age Variable
+datN$Age[datN$Age == "0"] <- "NA"
+datN$Age[datN$Age == "1"] <- "NA"
+datN$Age[datN$Age == "above 40    "] <- 40
+datN$Age[datN$Age == "200"] <- "NA"
+
+
+## Delete those who drop after 3rd question
+
+datN1 <- datN[!(rowSums(is.na(datN[ , ])) == 27), ]
+
+## Delete those who drop after 5th question
+
+datFinal <- datN1[!(rowSums(is.na(datN1[ , ])) == 25),  ]
+
+## We impute 
+
+
+
+
+
+```
+
+
+
+## View the data
+
+```{r}
+# Remove responses ID
+library(pillar)
+datFinal <- datFinal[, -1]
+
+```
+
+
+# Data Exploration
+
+```{r}
+#---------------------------Load packages---------------------------------------
+#Install Packages
+#install.packages("tidyverse")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("skimr")
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(skimr)
+
+
+#------------------------Inspect Data-------------------------------------------
+str(datFinal)
+glimpse(datFinal)
+skim(datFinal)
+names(datFinal)
+
+```
+
+
+
+```{r}
+#* Check 
+#install.packages("DataExplorer")
+library(DataExplorer)
+
+# Plot the structure of the data 
+plot_intro(datFinal, title = "Structure of the Data")
+
+
+# View missing value distribution 
+plot_missing(datFinal)
+```
+
+
+
+```{r}
+#-----------------------------Inspect Missiness---------------------------------
+#install.packages("visdatr")
+library(visdat)
+
+vis_dat(datFinal) #see what is in data, variable types
+vis_miss(datFinal) # explore the missing data
+
+```
+
+
+
+```{r}
+#* convert integers to factors
+
+
+datFinal<- datFinal %>% mutate_if(is.double, as.factor)
+datFinal <-  datFinal %>% mutate_if(is.character, as.double)
+df <-   datFinal%>% mutate_if(is.integer,as.factor)
+
+df$Hours_work_per_week <- factor(df$Hours_work_per_week, ordered = T)
+df$total_income        <- factor(df$total_income, ordered = T)
+df$academic_level      <- factor(df$academic_level, ordered = T)
+
+
+str(df)
+skim(df)
+```
+
+
+
+```{r}
+# Imputation-----
+
+#*Impute with Modal class--------------------------------------
+#place_of_work and have_dependents =2, the modal class
+library(naniar)
+
+df <- df %>% 
+  replace_na(list(Place_of_work = 2, have_dependents = 2))
+
+str(df)
+glimpse(df)
+skim(df)
+gg_miss_var(df)
+vis_miss(df)
+
+```
+
+
+
+```{r}
+# install.packages("missForest")
+#*Impute with Random forest--------------------------------
+#Hours_work_per_week with 
+## Nonparametric missing value imputation on mixed-type data:
+
+library(missForest)
+
+df1 <- df %>% select(-night_elsewhere_no_permanent_add)
+vis_miss(df1)
+str(df1)
+
+
+df1 <- data.frame(df1)
+
+#**set based on number of CPU cores----
+doParallel::registerDoParallel(cores = 4)
+
+#**set seed
+doRNG::registerDoRNG(seed = 123)
+df_imputed <- missForest(df1, parallelize = 'forests')$ximp
+
+df_imputed <- as_tibble(df_imputed)
+
+df_imputed_2 <- df_imputed %>%
+  mutate(night_elsewhere_no_permanent_add = df$night_elsewhere_no_permanent_add) %>%
+  mutate(Age = round(df_imputed$Age,0))
+# 
+# 
+vis_miss(df_imputed_2) # explore the missing data
+
+
+skim(df_imputed_2)
+str(df_imputed_2)
+
+```
+
+
+
+
+```{r}
+# EDA 1: Data Distribution-----
+
+#* 1 -----
+library(DataExplorer)
+
+df_imputed_2 %>% plot_density()
+  
+df_imputed_2 %>% plot_histogram()  
+
+df_imputed_2 %>% select(1:9)%>% plot_bar()
+
+df_imputed_2 %>% plot_correlation(maxcat =2) # not informative
+
+```
+
+
+
+
+```{r}
+## Plots of the data 
+
+library(funModeling) 
+library(tidyverse) 
+library(Hmisc)
+library(skimr)
+basic_eda <- function(data)
+{
+  df_status(data)
+  freq(data) 
+}
+basic_eda(df_imputed_2)
+
+```
+
+
+```{r}
+# Distribution of some interesting variables against the response variable
+
+## Housing Insecurity
+
+Race_per <- as.matrix(table(df_imputed_2$permanent_address_past12, df_imputed_2$Race))
+
+heatmap(Race_per)
+
+gend_per<-  as.matrix(table(df_imputed_2$permanent_address_past12, df_imputed_2$Age))
+
+heatmap(gend_per)
+
+```
+
+
+```{r}
+# Saving outpute
+dat
+
+write.csv(healthstudy,'healthstudy2.csv')
+
+
+```
+
+
+```{r}
+#--- 2. checking and  Removing missing values ------
+df_imputed_2[!complete.cases(df_imputed_2),] # list row with missing values
+df_only_254_cases <- na.omit(df_imputed_2)       # remove row with missing values
+# skim(df2)  #Explore data distribution
+
+write.csv(df_only_254_cases,'final_data_housing_model_1.csv')
+```
+
+

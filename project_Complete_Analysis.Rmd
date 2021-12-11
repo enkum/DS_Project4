@@ -1,0 +1,859 @@
+---
+title: "Modeling Food and Housing Insecurity"
+author: "Ebenezer Nkum, Francis Biney and Tolulope Adeyina"
+date: "11/17/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+
+```{r, include=FALSE, echo = F}
+# LOAD DATA----
+setwd("C://Users//enkum//OneDrive - University of Texas at El Paso//Desktop//Intro_Data_Collaboratiosn//Project-first-phase")
+
+```
+
+
+```{r, include= FALSE}
+
+# LIBRARIES----
+library(caret)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(skimr)
+library(rsample)
+library(vip)
+library(funModeling)
+```
+
+
+## Analysis Plan
+
+Attached is Data_and_EDA file which contains the initial data cleaning and 
+exploration of the food and housing insecurity survey. Here we outline our 
+approach to explore factors associated with food insecurity and housing insecurity
+among UTPE students. We also explore subpopulations of the students who are most
+at risk for food and housing insecurity.
+
+------Analysis Procedure------
+
+# Data cleaning
+We clean the data for inconsistency 
+We will check for data structure and perform the right correction
+
+# Missingness of the data
+
+First, we clean the data and determine the missing rate for each question and 
+also for each respondents. We make assumption to remove students who dropout
+of the survey before attempting 50% of the survey questions by performing listwise 
+deletion.
+We also impute variables with missing rate less then 50% with with modal class
+and random forest. 
+
+
+# Feature engineering
+
+We will collapse the variables with multiple responses into one variable.
+We will remove variables with no prediction importance
+
+# Data Exploration
+We check for the distribution of the variables 
+
+
+# Model Development
+
+We have 3 questions to answer:
+1. Which factors are associated with Food Insecurity ?
+2. Which factors are associated with housing insecurity?
+3. Which subpopulations are most at risk for Food and housing Insecurity?
+
+First we explore Logistic regression (both multinomial and binomial) 
+and Random forest for the classification for the following response variable
+
+#Under the Housing Insecurity:
+Response Variable: 
+Q22. Due to lack of permanent address or housing options,
+how frequently did you spend the night elsewhere in the
+past six months due to lack of permanent housing? 
+
+This is categorical with three variables, coded as: 
+Rarely    :1
+Sometimes :2
+Often     :3
+
+We build Multinomial Logistic regression and Random forest to assess the 
+risk factors housing insecurity.
+We will obtain the variable important and determine the highest predictor of the 
+response variable. We will compare the two model to check if the risk factors
+are consistent. We will report the model accuracy for transparency.
+
+
+#Under the Food Insecurity:
+Here we have 4 response variables to explore. We will examine each separately
+to determine which factors are associated with house insecurity.
+
+1. First Response variable;
+Q26. "The food that I bought just didn't last, and I didn't have money 
+to get more." Was that often, sometimes, or never true for you in the 
+last 12 months? 
+
+This is categorical with three variables, coded as: 
+Never true     :1
+Sometimes true :2
+Never true     :3
+
+We build Multinomial Logistic regression and Random forest to assess the 
+risk factors food insecurity.
+We will obtain the variable important and determine the highest predictor of the 
+response variable. We will compare the two model to check if the risk factors
+are consistent. We will report the model accuracy for transparency and improve
+where necessary.
+
+2. Second Response Variable:
+Q28. In the last 12 months, since (today's date), did you ever cut the size of 
+your meals or skip meals because there was not enough money for food?
+
+
+This is categorical with two variables: 
+Yes     :1
+No      :2
+
+We build binomial Logistic regression and Random forest to assess the 
+risk factors food insecurity.
+We will obtain the variable important and determine the highest predictor of the 
+response variable. We will compare the two model to check if the risk factors
+are consistent. We will report the model accuracy for transparency and improve
+where necessary.
+
+
+3. Third Response Variable:
+Q30. In the last 12 months, did you ever eat less than you felt you should 
+because there was not enough money for food? 
+
+
+This is categorical with two variables: 
+Yes     :1
+No      :2
+
+We build binomial Logistic regression and Random forest to assess the 
+risk factors food insecurity.
+We will obtain the variable important and determine the highest predictor of the 
+response variable. We will compare the two model to check if the risk factors
+are consistent. We will report the model accuracy for transparency and improve
+where necessary.
+
+4. Forth Response Variable:
+Q31. In the past 12 months, were you ever hungry but didn't eat because there 
+wasn't enough money for food? 
+
+
+This is categorical with two variables: 
+Yes     :1
+No      :2
+
+We build binomial Logistic regression and Random forest to assess the 
+risk factors food insecurity.
+We will obtain the variable important and determine the highest predictor of the 
+response variable. We will compare the two model to check if the risk factors
+are consistent. We will report the model accuracy for transparency and improve
+where necessary.
+
+
+
+## Analysis and Results
+
+
+# Housing Insecurity model
+
+Q22. Due to lack of permanent address or housing options, how frequently did 
+you spend the night elsewhere in the past six months due to lack of permanent
+housing? 
+
+
+```{r, include = FALSE}
+## Housing Insecurity model
+
+
+df <- read_csv("imputedData_update_noNA.csv")
+
+df<-df %>% select(-Age) %>%  
+  mutate_if(is.double, as.factor) %>% 
+  mutate(Age = df$Age)
+
+df<-df %>% rename(night=night_elsewhere_no_permanent_add) %>% 
+       select(-permanent_address_past12)
+
+#* Train test spit------------
+set.seed(123)
+df_split <- initial_split(df, strata = night) # 3/4 train 1/4 test
+df_train <- training(df_split)
+df_test <- testing(df_split)
+
+# MultiNomial Logistic Regression (Model 1)
+
+# Model  1.1----
+set.seed(123)
+multiLog = train(
+  night ~ .,
+  data = df_train,
+  method = "multinom", #nnet,multinom,glmnet
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+#Model 1.2: Multinomial logistic with Lasso ----
+
+multiLog_2 = train(
+  night ~ .,
+  data = df_train,
+  method = "glmnet", #nnet,multinom,glmnet,enet
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE)
+
+
+
+```
+
+
+Here, we fit multinomial logistic regression and multinomial logistic regression 
+with LASSO regularization. We use 10-fold cross validation to
+estimate the model parameters. The results are reported below:
+
+```{r}
+## Results for Model 1.1
+
+# plot
+plot(multiLog)
+
+
+#* VIP------
+varImp(multiLog, scale = FALSE)
+
+vip(multiLog)
+
+#* Test Prediction----
+#* 
+pred <- predict(multiLog, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night, positive = "3",mode =  "everything")
+result
+
+```
+
+We report the confusion matrix and variable of importance for the model 1.1.
+Also their plots are provided
+
+
+```{r}
+
+## Report for mdoel 1.2
+
+plot(multiLog_2)
+
+
+varImp(multiLog_2, scale = FALSE)
+
+pred <- predict(multiLog_2, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night, positive = "3",mode =  "everything")
+result
+
+
+```
+We report the confusion matrix and variable of importance for the second model.
+Also the plots are provided
+
+
+
+```{r, include= FALSE}
+#Housing Insecurity
+
+# RandomForest  (Model 2)
+
+#* model with default paramters -----
+set.seed(123)
+tunegrid <- expand.grid(.mtry=c(1:15))
+rf_1 <- train(night~., 
+                    data=df_train, 
+                    method="rf", 
+                    metric="Accuracy", 
+                    tuneGrid= tunegrid, 
+                    trControl=trainControl(method="repeatedcv", number=10, 
+                                           repeats=3))
+
+```
+
+We report the confusion matrix and variable of importance for the second model.
+Also the plots are provided
+
+
+
+
+```{r}
+# Report for model 2
+
+print(rf_1)
+
+
+#* VIP------
+vip(rf_1)
+
+#* Test Prediction----
+pred <- predict(rf_1, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night,positive = "3",mode =  "everything")
+result
+```
+
+
+
+
+# Food Insecurity model
+
+We have two models for 4 response variable
+
+#Food Insecurity model with the response:
+Q26. "The food that I bought just didn't last, and I didn't have money 
+to get more." Was that often, sometimes, or never true for you in the 
+last 12 months? 
+
+```{r, include= FALSE}
+
+df_food <- read_csv("imputedData_update.csv")
+
+df_food <-df_food %>% 
+  select(-Age,-night_elsewhere_no_permanent_add,
+         -not_enough_money_for_food,
+         -eat_less_cause_not_enough_money,
+         -go_hungry_because_not_enough_money_past12) %>%  
+  mutate_if(is.double, as.factor) %>% 
+  mutate(Age = df_food$Age)
+
+
+
+df_food <-df_food  %>% rename(food_ins1=food_security_past12 ) 
+
+#* Train test spit------------
+
+set.seed(123)
+df_split1 <- initial_split(df_food, strata = food_ins1) # 3/4 train 1/4 test
+df_train1 <- training(df_split1)
+df_test1 <- testing(df_split1)
+
+
+# MultiNomial Logistic Regression ---------
+
+#* Model  1.1----
+set.seed(123)
+multiLog = train(
+  food_ins1 ~ .,
+  data = df_train1,
+  method = "multinom", #nnet,multinom,glmnet
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+
+#* Model 1.2: Multinomial logistic with Lasso ----
+set.seed(123)
+multiLog_2 = train(
+  food_ins1 ~ .,
+  data = df_train1,
+  method = "glmnet", #nnet,multinom,glmnet,e
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+```
+
+
+
+
+
+```{r}
+## Results for Model 1.1
+
+
+plot(multiLog)
+
+#* VIP------
+varImp(multiLog, scale = FALSE)
+
+vip(multiLog)
+
+#* Test Prediction----
+pred <- predict(multiLog, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1,positive = "1",mode =  "everything")
+result
+```
+
+
+
+```{r}
+## Results for Model 1.2
+summary(multiLog_2)
+
+plot(multiLog_2)
+
+
+varImp(multiLog_2, scale = FALSE)
+
+#* Test Prediction----
+pred <- predict(multiLog_2, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1,positive = "1",mode =  "everything")
+result
+
+```
+
+
+
+```{r ,include= FALSE}
+# Food Insecurity Model: First response variable
+
+# RandomForest  (Model 2)
+
+#* model with default paramters -----
+#RF model 
+doParallel::registerDoParallel()
+set.seed(123)
+
+rf_1 <- train(food_ins1~., 
+              data=df_train1, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl=trainControl(method="cv", number=10))
+```
+
+
+
+```{r}
+# Report for model 2
+
+#* VIP------
+vip(rf_1)
+
+#* Test Prediction----
+pred <- predict(rf_1, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1,positive = "1",mode =  "everything")
+result
+
+summary(result)
+names(result)
+```
+
+
+
+
+
+
+#Food Insecurity model with the response:
+
+Q28. In the last 12 months, since (today's date), did you ever cut the size of 
+your meals or skip meals because there was not enough money for food? 
+
+```{r ,include= FALSE}
+# Load data
+df_food1 <- read_csv("imputedData_update.csv")
+
+df_food1<-df_food1 %>% 
+  select(-Age,-night_elsewhere_no_permanent_add,
+         -food_security_past12,
+         -eat_less_cause_not_enough_money,
+         -go_hungry_because_not_enough_money_past12) %>%  
+  mutate_if(is.double, as.factor) %>% 
+  mutate(Age =df_food1$Age)
+
+df_food1<-df_food1 %>% rename(food_ins2 =not_enough_money_for_food) 
+
+
+#* Train test spit------------
+
+set.seed(123)
+df_split2 <- initial_split(df_food1, strata = food_ins2) # 3/4 train 1/4 test
+df_train2 <- training(df_split2)
+df_test2 <- testing(df_split2)
+
+
+# MultiNomial Logistic Regression ---------
+
+#* Model  1----
+set.seed(123)
+multiLog = train(
+  food_ins2 ~ .,
+  data = df_train2,
+  method = "multinom",# multinom,glmnet
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+
+#* Model 2: Multinomial logistic with Lasso ----
+set.seed(123)
+multiLog_2 = train(
+  food_ins2 ~ .,
+  data = df_train2,
+  method = "glmnet", #nnet,multinom,glmnet,e
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+
+
+
+```
+
+
+
+
+```{r}
+## Results for Model 1.1
+plot(multiLog)
+
+
+#* VIP------
+varImp(multiLog, scale = FALSE)
+
+vip(multiLog)
+
+#* Test Prediction----
+pred <- predict(multiLog, df_test2, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test2$food_ins2,positive = "1",mode =  "everything")
+result
+```
+
+
+
+```{r}
+## Results for Model 1.2
+print(multiLog_2)
+
+summary(multiLog_2)
+
+plot(multiLog_2)
+
+
+varImp(multiLog_2, scale = FALSE)
+
+#* Test Prediction----
+pred <- predict(multiLog_2, df_test2, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test2$food_ins2,positive = "1",mode =  "everything")
+result
+```
+
+
+
+
+```{r, include= FALSE}
+# Food Insecurity Model: Second Response variable
+
+# RandomForest  (Model 2)
+
+#* model with default paramters -----
+#RF model 
+doParallel::registerDoParallel()
+set.seed(123)
+
+rf_1 <- train(food_ins2~., 
+              data=df_train2, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl=trainControl(method="cv", number=10))
+
+```
+
+
+
+```{r}
+
+#* VIP------
+vip(rf_1)
+
+#* Test Prediction----
+pred <- predict(rf_1, df_test2, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test2$food_ins2,positive = "1",mode =  "everything")
+result
+
+```
+
+
+#Food Insecurity model with the response:
+
+
+
+Q31. In the past 12 months, were you ever hungry but didn't eat because
+there wasn't enough money for food? 
+
+
+```{r,include= FALSE}
+
+df_food2 <- read_csv("imputedData_update.csv")
+
+df_food2<- df_food2 %>% 
+  select(-Age,-night_elsewhere_no_permanent_add,
+         -food_security_past12,
+         -eat_less_cause_not_enough_money,
+         -not_enough_money_for_food) %>%  
+  mutate_if(is.double, as.factor) %>% 
+  mutate(Age = df_food2$Age)
+
+df_food2<-df_food2 %>% rename(food_ins3=go_hungry_because_not_enough_money_past12) 
+
+#* Train test spit------------
+
+set.seed(123)
+df_split3 <- initial_split(df_food2, strata = food_ins3) # 3/4 train 1/4 test
+df_train3 <- training(df_split3)
+df_test3 <- testing(df_split3)
+
+
+# MultiNomial Logistic Regression ---------
+
+#* Model  1----
+set.seed(123)
+multiLog = train(
+  food_ins3 ~ .,
+  data = df_train3,
+  method = "multinom",# multinom,glmnet
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+
+#* Model 2: Multinomial logistic with Lasso ----
+set.seed(123)
+multiLog_2 = train(
+  food_ins3 ~ .,
+  data = df_train3,
+  method = "glmnet", #nnet,multinom,glmnet
+  tuneGrid = expand.grid(alpha = 1,lambda = seq(0.001,0.1,by = 0.001)),
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+
+
+```
+
+
+
+
+
+```{r}
+## Results for Model 1.1
+
+plot(multiLog)
+
+#* VIP------
+varImp(multiLog, scale = FALSE)
+
+vip(multiLog)
+
+#* Test Prediction----
+pred <- predict(multiLog, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3,positive = "1",mode =  "everything")
+result
+
+
+```
+
+
+
+
+```{r}
+## Results for Model 1.2
+
+summary(multiLog_2)
+
+plot(multiLog_2)
+
+
+varImp(multiLog_2, scale = FALSE)
+
+#* Test Prediction----
+pred <- predict(multiLog_2, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3,positive = "1",mode =  "everything")
+result
+```
+
+
+```{r, include= FALSE}
+
+# Food Insecurity Model: Second Response variable
+
+# RandomForest  (Model 2)
+
+#* model with default paramters -----
+#RF model 
+
+doParallel::registerDoParallel()
+set.seed(123)
+
+rf_1 <- train(food_ins3~., 
+              data=df_train3, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl=trainControl(method="cv", number=10))
+
+
+```
+
+
+
+
+```{r}
+
+print(rf_1)
+
+#* VIP------
+vip(rf_1)
+
+#* Test Prediction----
+pred <- predict(rf_1, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3,positive = "1",mode = "everything")
+result
+
+```
+
+
+
+
+
+
+##-Discussion-##
+
+
+We seek to explore the factors that are associated with Housing and Food
+insecurity. 
+
+For the housing insecurity, we examined the risk factors that are associated with
+the response variable :spend the night elsewhere in the past six months due 
+to lack of permanent housing. 
+In this examination, we explored 3 models: 
+1. Multinomial Logistic regression 
+2. Multinomial logistic regression with regularize LASSO
+3. Random forest.
+
+With the Multinomial Logistic regression, the first 5 variable of importance are 
+Race, federal_Aid_past, income_change, food_security_past12, and 
+federal_Aid_past6. It has an accuracy of 43.08%. 
+
+
+
+So we further performed a Multinomial logistics regression with 
+regularize LASSO. However, the first 5 variable of importance that
+were selected are federal_Aid_past, College, 
+mode_of_transport, Race. It has an accuracy level of 58.46%. 
+
+We achieve an improved model with Random Forest with the accuracy level of 58.46%.
+Here the first 5 variables selected as most important were Age, any_benefit_support,
+income_change, debt_change, and experience_of_homelessness.
+
+This is expected because, only 254 responded to this response variable. 
+Imputation was not considered here because, this missing values could not be
+considered missing at random.
+
+With choose the model with highest accuracy level of 58.46%. 
+
+
+
+For Food insecurity, we examined the risk factors that are associated with
+the 4 response variables with Multinomial logistic regression, Multinomial 
+logistic regression with regularize LASSO and Random forest.
+
+The first response:
+Q26. "The food that I bought just didn't last, and I didn't have money 
+to get more." Was that often, sometimes, or never true for you in the 
+last 12 months? 
+
+With the Multinomial Logistic regression, the first 5 variable of importance are 
+total_income , place_of_stay, Race, reliability_of_transport and place_of_stay.
+It has an accuracy of 64.76%. 
+
+We also performed a Multinomial logistics regression with 
+regularize LASSO. However, the first 5 predictor importance that were selected
+are total_income, debt_change, Race, reliability_of_transport and 
+experience_of_homelessness . It has an accuracy of 64.37%. 
+
+The last model we explored was random forest, it has an accuracy of 62.83%
+The variable of importance that were selected are: Age, debt_change, 
+debt_change and financial_aid_change.
+
+
+The second response:
+Q28. In the last 12 months, since (today's date), did you ever cut the size of 
+your meals or skip meals because there was not enough money for food? 
+
+With the Multinomial Logistic regression, the first 5 variable of importance are 
+total_income, Race and debt_change and place_of_stay. It has an 
+accuracy of 73.65% 
+
+We also performed a Multinomial logistics regression with 
+regularize LASSO. However, the first 5 predictor importance that were selected
+are total_income, Race and debt_change and experience_of_homelessness. 
+It has an accuracy of 74.19% 
+
+The last model we explored was random forest, it has an accuracy of 74.5%
+The variable of importance that were selected are: Age, debt_change, 
+ and experience_of_homelessness and income_change.
+ 
+ 
+
+The third response:
+Q31. In the past 12 months, were you ever hungry but didn't eat because
+there wasn't enough money for food? 
+
+With the Multinomial Logistic regression, the first 5 variable of importance are 
+total_income, Race and experience_of_homelessness and income_change. It has an 
+accuracy of 77.59% 
+We also performed a Multinomial logistics regression with 
+regularize LASSO. However, the first 5 predictor importance that were selected
+are total_income, experience_of_homelessness, Race and debt_change and 
+income_change. It has an accuracy of 78.05%. 
+
+The last model we explored was random forest, it has an accuracy of 77.2%
+The variable of importance that were selected are: Age, experience_of_homelessness, 
+and debt_change and income_change.
+
+For the food insecurity, we choose  Multinomial logistics regression with 
+regularize LASSO. It has an accuracy of 78.05. 
+The first 5 predictor importance that were selected
+are total_income, experience_of_homelessness, Race and debt_change and 
+income_change. 
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
