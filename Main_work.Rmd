@@ -1,0 +1,1288 @@
+---
+title: '**\center{MODELING FOOD AND HOUSING}** \center{\textbf{INSECURITY}} \center{by}'
+author: "Francis Biney, Ebenezer Nkum and Tolulope Adeyina"
+output:
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+    latex_engine: pdflatex
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+geometry: margin = 0.98in
+fontsize: 12pt
+header-includes:
+- \usepackage {setspace}\onehalfspacing
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsfonts}
+- \usepackage{amsthm}
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{}
+- \lhead{DS 6335}
+- \rhead{FHI}
+- \cfoot{\thepage}
+- \usepackage{algorithm}
+- \usepackage[noend]{algpseudocode}
+- \usepackage[none]{hyphenat}
+- \usepackage{xcolor}
+- \usepackage{sectsty}
+- \usepackage{graphicx}
+- \chapterfont{\color{blue}}  % sets colour of chapters
+- \sectionfont{\color{black}}  % sets colour of sections
+- \subsectionfont{\color{black}}  % sets colour of subsections
+- \subsubsectionfont{\color{black}}  % sets colour of subsubsections
+---
+
+
+# Set working directory
+```{r}
+setwd("C:/Users/fbiney/Desktop/Finalwork")
+```
+
+# Load Libraries
+```{r, message= FALSE}
+
+# LIBRARIES----
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(skimr)
+library(rsample)
+library(vip)
+library(funModeling)
+library(Hmisc)
+
+```
+
+
+## Load Data
+
+```{r}
+dat <- read.csv("dat2020.csv", header=T, na.strings = c("", "NA"))
+```
+
+
+# Data Cleaning and Preprocessing
+
+## Remove non-predictive variables
+```{r}
+#----------Removes non-predictive variables--------------------------------#
+# We remove the variables: Satellite, Externalld, Email, DateTime, CardData
+# Q16, Q18, Q21, Q27, Q27,Q29, Q36, Q37, Q38, Q39
+
+# print the columns names and create a vector the variables to be removed
+col_names <- as.data.frame(colnames(dat))
+
+rem <- c(2,3,4,5,6,45,47,50:56,77,79,86:104)
+
+# remove selected columns
+dat0 <- dat[ ,-rem]
+
+# Delete all rows which truncated after 2 question
+dat1 <- dat0[!(rowSums(is.na(dat0[ , ])) == 67), ]
+
+```
+
+
+## Merge multiple columns
+```{r}
+# Some Questions have multiple responses, merge them and rename
+# We will merge :
+# -Q6 Race
+# -Q7 Gender 
+# -Q8 Pronouns
+# -Q11 College/school
+# -Q12 Prior to COVID-19 stay at home orders did you commute to campus?
+# -Q24 
+# -Q25
+
+# merging Races into one column and deleting the others
+
+split_Race <- split(dat1[, c(7:13)], seq(nrow(dat1[, c(7:13)])))
+dat1[, 7] <- unlist(lapply(split_Race, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) )))); 
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab) ], 
+                        collapse = "" )}))
+
+dat2 <- dat1[ , -c(8:13)]
+
+
+
+# Merging Gender into one column and deleting others: use dat2
+
+split_gender <- split(dat2[, c(8:13)], seq(nrow(dat2[, c(8:13)])))
+dat2[,8] <- unlist(lapply(split_gender, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat3 <- dat2[ , -c(9:13)]
+
+
+# Merging Pronouns into one column and deleting others: use dat3
+ 
+split_pronoun <- split(dat3[, c(9:13)], seq(nrow(dat3[, c(9:13)])))
+dat3[,9] <- unlist(lapply(split_pronoun, function(x)  {
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat4 <- dat3[ , -c(10:13)]
+
+
+# Merging -Q11 College/school into one column and deleting others: use dat4
+ 
+split_col <- split(dat4[, c(12:20)], seq(nrow(dat4[, c(12:20)])))
+dat4[,12] <- unlist(lapply(split_col, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat5 <- dat4[ , -c(13:20)]
+
+# Merging  -Q24 into one column and deleting others: use dat5
+
+split_Q24 <- split(dat5[, c(22:31)], seq(nrow(dat5[, c(22:31)])))
+dat5[, 22] <- unlist(lapply(split_Q24, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat6 <- dat5[ , -c(23:31)]
+
+
+# Merging  -Q25 into one column and deleting others: use dat5
+
+split_Q25 <- split(dat6[, c(23:29)], seq(nrow(dat6[, c(23:29)])))
+dat6[,23] <- unlist(lapply(split_Q25, function(x){
+  tab <- tabulate(match(x, na.omit(unique(unlist(x) ))));
+                  paste(na.omit(unique(unlist(x) ))[tab == max(tab)],
+                        collapse = "" )}) )
+dat7 <- dat6[ , -c(24:29)]
+
+
+
+#Rename the columns
+
+data0 <- dat7
+
+colnames(data0) <- c('RespondentId','Enrollment','Employ_Status','Place_of_work',
+                     'Hours_work_per_week','Age','Race','Gender','Pronouns', 
+                     'total_income','academic_level','College','mode_of_transport',
+                     'reliability_of_transport','live_alone','have_dependents',
+                     'head_of_household','place_of_stay','permanent_address_past12',
+                     'night_elsewhere','experience_of_homelessness',
+                     'any_benefit_support','federal_Aid_past6','food_not_last',
+                     'skip_meals','eat_less','go_hungry','expenditure_change',
+                     'income_change','financial_aid_change',
+                     'debt_change')
+
+
+```
+
+
+
+## Encoding of categorical variable
+
+```{r, echo = FALSE}
+
+datN <- data0
+## Re-coding of some of the variables 
+
+#  Re-coding the Race with multiple response as multi-ratio with 8
+datN$Race <- as.integer(datN$Race)
+datN$Race[datN$Race > 7] <- 8
+table(datN$Race, useNA = "ifany")
+
+#  Re-coding the Gender as prefer not to answer-0 1- female, 2-Male and 3-others
+datN$Gender <- as.integer(datN$Gender)
+datN$Gender[datN$Gender > 2] <- 3
+table(datN$Gender, useNA = "ifany")
+
+#  Re-coding Pronoun as 1- He, 2-she and 3-others
+datN$Pronouns <- as.numeric(datN$Pronouns)
+datN$Pronouns[datN$Pronouns > 2] <- 3
+table(datN$Pronouns, useNA = "ifany")
+
+# We re-code the total income base on US income distribution
+# < 29,999 as 1, between 30,000 and 49,999 as 2, between 50,000 and 89,999 as 3
+# and above 90,000 as 4
+datN$total_income[datN$total_income ==2]  <- 1
+datN$total_income[datN$total_income ==3]  <- 1
+datN$total_income[datN$total_income ==4]  <- 2
+datN$total_income[datN$total_income ==5]  <- 2
+datN$total_income[datN$total_income ==6]  <- 3
+datN$total_income[datN$total_income ==7]  <- 3
+datN$total_income[datN$total_income ==8]  <- 3
+datN$total_income[datN$total_income ==9]  <- 3
+datN$total_income[datN$total_income ==10] <- 4
+datN$total_income[datN$total_income ==11] <- 4
+
+table(datN$total_income, useNA = "ifany")
+
+# We re-code the academic level by adding Graduate and Special: Professional(CP)
+datN$academic_level[datN$academic_level== 7] <-5
+table(datN$academic_level, exclude = "ifany")
+
+# We coded student with multiple college as 10
+datN$College <- as.integer(datN$College)
+datN$College[datN$College > 9] <- 10
+table(datN$College, useNA = "ifany")
+
+# We re-code car(someone drives and pick you) and carpool as 2, Bus and Trolley 
+#as 3, Bike as 4, Walk as 5 and other as 6:
+datN$mode_of_transport[datN$mode_of_transport == 3] <- 2
+datN$mode_of_transport[datN$mode_of_transport == 4] <- 3
+datN$mode_of_transport[datN$mode_of_transport == 6] <- 3
+datN$mode_of_transport[datN$mode_of_transport == 5] <- 4
+datN$mode_of_transport[datN$mode_of_transport == 7] <- 5
+datN$mode_of_transport[datN$mode_of_transport == 8] <- 6
+table(datN$mode_of_transport, useNA = "ifany")
+
+
+#Q23 We re-code  0-No support receive  and 1-support receive 
+datN$any_benefit_support <- as.integer(datN$any_benefit_support)
+datN$any_benefit_support[datN$any_benefit_support > 0] <- 1
+table(datN$any_benefit_support, useNA = "ifany")
+
+# We re-code Federal student Aid as : Grant and scholarship(no paying back) as 1, 
+# Loan and Emergency Loan(pay back) as 3
+# Multiple Federal student Aid  as 4
+# And others as 5
+datN$federal_Aid_past6 <-as.integer(datN$federal_Aid_past6)
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 5 ] <- 1
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 4 ] <- 3
+datN$federal_Aid_past6[datN$federal_Aid_past6 > 6 ] <- 4
+datN$federal_Aid_past6[datN$federal_Aid_past6 == 6 ] <- 5
+table(datN$federal_Aid_past6, useNA = "ifany")
+
+
+```
+
+
+## Edit Age Variable 
+```{r}
+# Edit the Age Variable
+datN$Age[datN$Age == "0"] <- "NA"
+datN$Age[datN$Age == "1"] <- "NA"
+datN$Age[datN$Age == "above 40    "] <- 40
+datN$Age[datN$Age == "200"] <- "NA"
+
+
+## Delete those who drop after 3rd question
+
+datN1 <- datN[!(rowSums(is.na(datN[ , ])) == 27), ]
+
+## Delete those who drop after 5th question
+
+datFinal <- datN1[!(rowSums(is.na(datN1[ , ])) == 25),  ]
+
+```
+
+
+## View the data
+
+```{r}
+# Remove responses ID
+datF <- datFinal[, -1]
+head(datF); dim(datF)
+
+```
+
+
+# Data Exploration
+
+## Data Structure
+```{r}
+#---------------------------Load packages---------------------------------------
+#Install Packages
+#install.packages("tidyverse")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("skimr")
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(skimr)
+
+#------------------------Inspect Data-------------------------------------------
+str(datF)
+glimpse(datF)
+skim(datF)
+names(datF)
+
+```
+
+## Plot missing values
+
+```{r}
+#* Check 
+#install.packages("DataExplorer")
+library(DataExplorer)
+
+# Plot the structure of the data 
+plot_intro(datF, title = "Structure of the Data")
+
+
+# View missing value distribution 
+plot_missing(datF)
+```
+
+
+```{r}
+#-----------------------------Inspect Missiness---------------------------------
+#install.packages("visdatr")
+library(visdat)
+
+vis_dat(datF) #see what is in data, variable types
+vis_miss(datF) # explore the missing data
+
+```
+
+
+
+
+```{r}
+# convert integers to factors
+
+datF<- datF %>% mutate_if(is.double, as.factor)
+datF <-  datF %>% mutate_if(is.character, as.double)
+df <-   datF%>% mutate_if(is.integer,as.factor)
+
+df$Hours_work_per_week <- factor(df$Hours_work_per_week, ordered = T)
+df$total_income        <- factor(df$total_income, ordered = T)
+df$academic_level      <- factor(df$academic_level, ordered = T)
+
+
+str(df)
+skim(df)
+```
+
+
+
+## Impute for the remaining missing values
+
+```{r}
+# Imputation-----
+
+#*Impute with Modal class--------------------------------------
+#place_of_work and have_dependents =2, the modal class
+library(naniar)
+
+df <- df %>% 
+  replace_na(list(Place_of_work = 2, have_dependents = 2))
+
+str(df)
+glimpse(df)
+skim(df)
+gg_miss_var(df)
+vis_miss(df)
+
+```
+
+
+
+
+```{r}
+# install.packages("missForest")
+#*Impute with Random forest--------------------------------
+#Hours_work_per_week with 
+## Nonparametric missing value imputation on mixed-type data:
+
+library(missForest)
+
+df1 <- df %>% select(-night_elsewhere)
+vis_miss(df1)
+str(df1)
+
+
+df1 <- data.frame(df1)
+
+#**set based on number of CPU cores----
+doParallel::registerDoParallel(cores = 4)
+
+#**set seed
+doRNG::registerDoRNG(seed = 123)
+df_imputed <- missForest(df1, parallelize = 'forests')$ximp
+
+df_imputed <- as_tibble(df_imputed)
+
+df_imputed_2 <- df_imputed %>% mutate(Age = round(df_imputed$Age,0))
+
+
+vis_miss(df_imputed_2) # explore the missing data
+
+
+skim(df_imputed_2)
+str(df_imputed_2)
+
+```
+
+
+## Data Exploration
+
+```{r}
+# EDA 1: Data Distribution
+
+library(DataExplorer)
+
+df_imputed_2 %>% plot_density()
+  
+df_imputed_2 %>% plot_histogram()  
+
+df_imputed_2 %>% select(1:9) %>% plot_bar()
+
+df_imputed_2 %>% plot_correlation(maxcat =2) # not informative
+
+```
+
+
+```{r}
+## Plots of the data 
+
+basic_eda <- function(data)
+{
+  df_status(data)
+  freq(data) 
+}
+basic_eda(df_imputed_2)
+
+```
+
+
+
+
+# Model building
+
+ 
+## Food Insecurity
+
+
+
+## Exploration for Food Insecurity 
+
+```{r}
+# Racial housing distribution
+
+c = as.data.frame(table(df_imputed_2$go_hungry,df_imputed_2$Race))
+
+p <- ggplot(data = c, aes(x=Var2, y= Freq, fill=Var1)) +
+     geom_bar(stat="identity", position=position_dodge())
+
+
+print(p  + labs(title= "Racial food insecurity distribution",
+                      x="Race", fill = "Go hungry"))
+
+```
+
+
+```{r}
+# Academic level food insecurity distribution
+
+c = as.data.frame(table(df_imputed_2$go_hungry,df_imputed_2$academic_level))
+
+p <- ggplot(data = c, aes(x=Var2, y= Freq, fill=Var1)) +
+     geom_bar(stat="identity", position=position_dodge())
+
+
+print(p  + labs(title= "Academic level food insecurity distribution",
+                      x="Academic", fill = "Go hungry"))
+
+```
+
+## Sort out the variables that relate food Insecurity 
+
+
+
+```{r}
+# remove
+#mode_of_transport, reliability_of_transport, permanent_address_past12
+#experience_of_homelessness, 
+
+
+df_imputed_food <- df_imputed_2[ ,-c(12,13,18,19)]
+
+write.csv(df_imputed_food,'Housing.csv')
+```
+
+
+
+
+## Using the response variable : go_hungry
+
+### Food Insecurity model(1) 
+
+
+```{r}
+df_food2 <- df_imputed_food
+
+# Remove similar response
+df_food2<- df_food2 %>% 
+  select(-food_not_last,-skip_meals,
+         -eat_less) %>% mutate(go_hungry=recode(go_hungry
+                      ,`1` = "1" 
+                      ,`2` ="0")) 
+
+
+df_food2 <- df_food2 %>% rename(food_ins3=go_hungry) 
+
+#* Train test spit------------
+
+set.seed(123)
+df_split3 <- initial_split(df_food2, strata = food_ins3) # 3/4 train 1/4 test
+df_train3 <- training(df_split3)
+df_test3 <- testing(df_split3)
+
+```
+
+
+
+```{r}
+
+
+library(caret)
+
+myControl = trainControl(method = "cv", number = 10)
+
+#* Model  1----
+set.seed(123)
+
+multiLog = train(
+  food_ins3 ~ .,
+  data = df_train3,
+  method = "glm",
+  family = binomial(link = "logit"),
+  trControl = myControl,
+  trace = FALSE
+)
+
+
+```
+
+
+```{r}
+library(vip)
+
+vip(multiLog)
+
+multiLog
+
+#* Test Prediction----
+pred <- predict(multiLog, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3, positive = "1",mode =  "everything")
+result
+
+```
+
+Here, we fit multinomial logistic regression. We use 10-fold cross validation to estimate the model parameters. The results are reported below:
+We report the confusion matrix and variable of importance for the model 1.1. Also their plots are provided
+
+
+### Food Insecurity model(2)
+```{r, echo = FALSE}
+#* Model 2: Multinomial logistic regression with Lasso 
+
+
+set.seed(123)
+multiLog_2 = train(
+  food_ins3 ~ .,
+  data = df_train3,
+  method = "glmnet", #nnet,multinom,glmnet
+  tuneGrid = expand.grid(alpha = 1,lambda = seq(0.001,0.1,by = 0.001)),
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+plot(multiLog_2)
+
+varImp(multiLog_2, scale = FALSE)
+
+#* Test Prediction----
+pred <- predict(multiLog_2, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3,positive = "1",mode =  "everything")
+result
+```
+
+
+```{r}
+vip(multiLog_2)
+
+```
+
+
+Here, we fi multinomial logistic regression with LASSO regularization. We use 10-fold cross validation to estimate the model parameters. The results are reported below:
+
+### Food Insecurity model(3)
+```{r}
+
+# Food Insecurity Model: Second Response variable
+
+# RandomForest  (Model 3)
+
+#* model with default paramters -----
+#RF model 
+
+doParallel::registerDoParallel()
+set.seed(123)
+
+myControl = trainControl(method="cv", number=10)
+
+rf_f <- train(food_ins3~., 
+              data=df_train3, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl= myControl)
+
+
+
+print(rf_f)
+
+```
+
+
+
+```{r}
+print(rf_f)
+#* VIP------
+vip(rf_f)
+
+```
+
+```{r}
+#* Test Prediction----
+pred <- predict(rf_1, df_test3, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test3$food_ins3,positive = "1",mode = "everything")
+result
+```
+
+
+## Using the response variable : eat_less
+
+
+```{r}
+df_food1 <- df_imputed_food
+
+# Remove similar response
+df_food1<- df_food1 %>% 
+  select(-food_not_last,-skip_meals,
+         -go_hungry) %>% mutate(eat_less=recode(eat_less
+                      ,`1` = "1" 
+                      ,`2` ="0")) 
+
+
+df_food1 <- df_food1 %>% rename(food_ins1=eat_less) 
+
+#* Train test spit------------
+
+set.seed(123)
+df_split1 <- initial_split(df_food1, strata = food_ins1) # 3/4 train 1/4 test
+df_train1 <- training(df_split1)
+df_test1 <- testing(df_split1)
+
+```
+
+
+### Food Insecurity model(1)
+
+```{r}
+
+
+library(caret)
+
+myControl = trainControl(method = "cv", number = 10)
+
+#* Model  1----
+set.seed(123)
+
+multiLog1 = train(
+  food_ins1 ~ .,
+  data = df_train1,
+  method = "glm",
+  family = binomial(link = "logit"),
+  trControl = myControl,
+  trace = FALSE
+)
+
+
+```
+
+
+
+```{r}
+vip(multiLog1)
+
+multiLog1
+
+#* Test Prediction----
+pred <- predict(multiLog1, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1, positive = "1",mode =  "everything")
+result
+
+```
+
+
+### Food Insecurity model(2)
+```{r, echo = FALSE}
+#* Model 2: Multinomial logistic regression with Lasso 
+
+
+set.seed(123)
+multiLog_21 = train(
+  food_ins1 ~ .,
+  data = df_train1,
+  method = "glmnet", #nnet,multinom,glmnet
+  tuneGrid = expand.grid(alpha = 1,lambda = seq(0.001,0.1,by = 0.001)),
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+plot(multiLog_21)
+
+varImp(multiLog_21, scale = FALSE)
+
+vip(multiLog_21)
+#* Test Prediction----
+pred <- predict(multiLog_21, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1,positive = "1",mode =  "everything")
+result
+```
+
+
+### Food Insecurity model(3)
+```{r, include= FALSE}
+
+# Food Insecurity Model: Second Response variable
+
+# RandomForest  (Model 3)
+
+#* model with default paramters -----
+#RF model 
+
+doParallel::registerDoParallel()
+set.seed(123)
+
+rf_11 <- train(food_ins1~., 
+              data=df_train1, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl=trainControl(method="cv", number=10))
+
+
+
+print(rf_11)
+
+```
+
+
+
+```{r}
+
+#* VIP------
+vip(rf_11)
+
+```
+
+
+```{r}
+#* Test Prediction----
+pred <- predict(rf_11, df_test1, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test1$food_ins1,positive = "1",mode = "everything")
+result
+```
+
+
+
+
+
+
+
+## Exploration for Housing Insecurity 
+
+## Sort out the variables that relate Housing insecurity 
+
+```{r}
+# remove
+#experience_of_homelessness,food_not_last,skip_meals, eat_less, go_hungry
+
+df_imputed_housing <- df_imputed_2[ ,-c(19,22,23,24,25)]
+
+```
+
+
+
+```{r}
+# Race housing distribution
+
+c = as.data.frame(table(df_imputed_housing$permanent_address_past12,
+                                             df_imputed_housing$Race))
+
+p <- ggplot(data = c, aes(x=Var2, y= Freq, fill=Var1)) +
+     geom_bar(stat="identity", position=position_dodge())
+
+
+print(p  + labs(title= "Race housing distribution",
+                      x="Race", fill = "Permanent address"))
+
+```
+
+
+```{r}
+# academic housing distribution
+
+c = as.data.frame(table(df_imputed_housing$permanent_address_past12,
+                                              df_imputed_housing$academic_level))
+
+p <- ggplot(data = c, aes(x=Var2, y= Freq, fill=Var1)) +
+     geom_bar(stat="identity", position=position_dodge())
+
+
+print(p  + labs(title= "Academic level housing distribution",
+                      x="Academic level", fill = "Permanent address"))
+
+```
+
+## Housing Insecurity model 
+
+## Using the response variable : permanent_address_past12
+
+```{r}
+df_housing1 <- df_imputed_housing
+
+# Remove similar response
+df_housing1<- df_housing1 %>% 
+                      mutate(permanent_address_past12=
+                      recode(permanent_address_past12
+                      ,`1` = "1" 
+                      ,`2` ="0")) 
+
+
+df_housing1 <- df_housing1 %>% rename(house_ins1=permanent_address_past12) 
+
+#* Train test spit------------
+
+set.seed(123)
+df_split1 <- initial_split(df_housing1, strata = house_ins1) # 3/4 train 1/4 test
+df_train_h <- training(df_split1)
+df_test_h <- testing(df_split1)
+
+```
+
+
+
+### Housing Insecurity model(1) 
+
+```{r}
+
+
+library(caret)
+
+myControl = trainControl(method = "cv", number = 10)
+
+#* Model  1----
+set.seed(123)
+
+multiLog_h = train(
+  house_ins1 ~ .,
+  data = df_housing1,
+  method = "glm",
+  family = binomial(link = "logit"),
+  trControl = myControl,
+  trace = FALSE
+)
+
+
+```
+
+
+
+```{r}
+vip(multiLog_h )
+
+multiLog_h 
+
+#* Test Prediction----
+pred <- predict(multiLog_h, df_test_h, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test_h$house_ins1, positive = "1",mode =  "everything")
+result
+
+```
+
+
+
+### Housing Insecurity model(2)
+```{r, echo = FALSE}
+#* Model 2: Multinomial logistic regression with Lasso 
+
+
+set.seed(123)
+multiLog_h2 = train(
+  house_ins1 ~ .,
+  data = df_housing1,
+  method = "glmnet", #nnet,multinom,glmnet
+  tuneGrid = expand.grid(alpha = 1,lambda = seq(0.001,0.1,by = 0.001)),
+  trControl = trainControl(method = "cv", number = 10),
+  trace = FALSE
+)
+
+plot(multiLog_h2)
+
+varImp(multiLog_h2, scale = FALSE)
+
+vip(multiLog_h2)
+#* Test Prediction----
+pred <- predict(multiLog_h2, df_test_h, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test_h$house_ins1,positive = "1",mode =  "everything")
+result
+```
+
+
+## Housing Insecurity model(3)
+```{r, include= FALSE}
+
+# Food Insecurity Model: Second Response variable
+
+# RandomForest  (Model 3)
+
+#* model with default paramters -----
+#RF model 
+
+doParallel::registerDoParallel()
+set.seed(123)
+
+myControl = trainControl(method="cv", number=10)
+
+rf_11 <- train(house_ins1~., 
+              data=df_housing1, 
+              method="rf", 
+              metric="Accuracy", 
+              tunegrid = expand.grid(.mtry=3),
+              trControl=myControl)
+
+
+
+print(rf_11)
+
+```
+
+
+
+```{r}
+
+#* VIP------
+vip(rf_11)
+
+```
+
+```{r}
+#* Test Prediction----
+pred <- predict(rf_11, df_test_h, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test_h$house_ins1,positive = "1",mode = "everything")
+result
+```
+
+
+
+
+## Save  output
+
+```{r}
+#--- 2. checking and  Removing missing values ------
+df_imputed_2["night_elsewhere"] <- df$night_elsewhere
+
+df_only_254_cases <- df_imputed_2[complete.cases(df_imputed_2), ]
+# skim(df2)  #Explore data distribution
+
+write.csv(df_only_254_cases,'final_data_housing_model_1.csv')
+```
+
+## Housing Insecurity model: Using night_elsewhere
+
+
+## Housing Insecurity model(1)
+```{r, echo = FALSE}
+## Housing Insecurity model
+
+df_house2 <- df_only_254_cases
+
+
+df_house2<-df_house2 %>% rename(night=night_elsewhere) 
+
+#* Train test spit------------
+set.seed(123)
+df_split <- initial_split(df_house2, strata = night) # 3/4 train 1/4 test
+df_train <- training(df_split)
+df_test <- testing(df_split)
+
+# MultiNomial Logistic Regression (Model 1)
+
+# Model  1.1----
+myControl = trainControl(method = "cv", number = 10)
+
+multiLog = train(
+      night ~ .,
+      data = df_train,
+      method = "multinom", #nnet,multinom,glmnet
+      trControl = myControl,
+      trace = FALSE
+)
+
+
+# Multinomial Regression ((Model 1)
+
+```
+
+
+```{r}
+#* VIP------
+vip(multiLog)
+
+#* Test Prediction----
+#* 
+pred <- predict(multiLog, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night, positive = "3", mode =  "everything")
+result
+```
+
+
+
+```{r, echo = FALSE}
+# Multinomial Regression with LASSO regularization ((Model 2)
+
+#Model 1.2: Multinomial logistic with Lasso ----
+myControl = trainControl(method = "cv", number = 10)
+
+multiLog_2 = train(
+  night ~ .,
+  data = df_train,
+  method = "glmnet", #nnet,multinom,glmnet,enet
+  tuneGrid = expand.grid(alpha = 1,lambda = seq(0.001,0.1,by = 0.001)),
+  trControl =myControl,
+  trace = FALSE)
+
+
+plot(multiLog_2)
+
+varImp(multiLog_2, scale = FALSE)
+
+pred <- predict(multiLog_2, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night, positive = "3",mode =  "everything")
+result
+
+```
+
+## Housing Insecurity model(3)
+
+```{r, echo = FALSE}
+
+# RandomForest(Model 3)
+
+#model with default paramters -----
+set.seed(123)
+tunegrid <- expand.grid(.mtry=c(1:15))
+rf_1 <- train(night~., 
+                    data=df_train, 
+                    method="rf", 
+                    metric="Accuracy", 
+                    tuneGrid= tunegrid, 
+                    trControl=trainControl(method="repeatedcv", number=10, 
+                                           repeats=3))
+
+
+# RandomForest(Model 3)
+print(rf_1)
+
+
+# VIP------
+vip(rf_1)
+
+#* Test Prediction----
+pred <- predict(rf_1, df_test, type="raw" ) # type: class=class, response=class prob
+result <- confusionMatrix(pred, df_test$night,positive = "3",mode =  "everything")
+result
+
+```
+
+
+
+# Subpopulations of students most at risk for food and housing insecurity.
+
+```{r}
+
+#library(tidymodels)
+library(ISLR)
+library(rpart.plot)
+```
+
+We use tree models to identify from the most important predictors, which subpupolation is at risk
+
+## Food Insecurity
+
+The most important predictors with response, go hungry because there was no money for by the highest performing model with accuracy of $77.07\%$ are 
+
+\begin{itemize}
+\item Age
+\item Debt Change
+\item Total income
+\item Federal Aid in the past 12 month
+\item Income change
+\item Any benefit support
+\item College
+\item Hours work per week
+\item Expenditure change
+\end{itemize}
+
+```{r}
+df_food_tree <- df_food2      #df_food2[, c(5,22,9,20,17,16,11,4,19,18)]
+```
+
+
+```{r ,include= FALSE}
+# Load data
+
+df_fd_2 <- df_food_tree
+
+df_fd_2 <-df_fd_2 %>% mutate(food_ins3=recode(food_ins3
+                      ,`1` = "Yes" 
+                      ,`0` ="No")) 
+
+
+
+# build a large tree
+set.seed(2)
+treefit = rpart(food_ins3~., method="class"
+                #,parms=list(split='gini')
+                ,control=rpart.control(cp=0)
+                ,data=df_fd_2)
+
+cv.tree = printcp(treefit)
+
+plotcp(treefit,col=2)
+
+
+mincv = which.min(cv.tree[,4])
+cutoff = cv.tree[mincv,4] + cv.tree[mincv,5]
+whichcp = min(which(cv.tree[,4] < cutoff))
+mycp = cv.tree[whichcp,1]
+mycp
+
+ 
+ 
+ # Refit tree with optimal complecity
+treefit = rpart(food_ins3~., method="class"
+                #,parms=list(split='gini')
+                ,control=rpart.control(cp=mycp ,minsplit = 50)
+                ,data=df_fd_2)
+
+
+
+```
+
+
+
+```{r}
+vip(treefit)
+```
+
+
+```{r}
+#plot tree
+cols = ifelse(treefit$frame$yval == 2, "darkorange", "darkgreen")
+rpart.plot(treefit, under=TRUE, faclen=0, extra=106, under.col="black", col=cols)
+
+
+```
+
+```{r}
+#simple tree
+prp(treefit)
+
+```
+## Housing Insecurity
+
+The most important predictors with response variable, **permanent address** by the correct predicting model with accuracy of $95.44\%$ are:
+
+\begin{itemize}
+\item Age
+\item Place of stay
+\item mode of transportation
+\item Total income
+\item Income change
+\item College
+\item Hours work per week
+\item federal Aid past 12 month
+\end{itemize}
+
+
+```{r}
+df_house_tree <- df_housing1
+```
+
+
+
+
+```{r ,include= FALSE}
+# Load data
+set.seed(2)
+
+df_fd_3 <- df_house_tree
+
+df_fd_3 <-df_fd_3 %>% mutate(house_ins1=recode(house_ins1
+                      ,`1` = "Yes" 
+                      ,`0` ="No")) 
+
+
+
+# build a large tree
+set.seed(2)
+treefit1 = rpart(house_ins1~., method="class"
+                #,parms=list(split='gini')
+                ,control=rpart.control(cp=0)
+                ,data=df_fd_3)
+
+cv.tree1 = printcp(treefit1)
+
+plotcp(treefit1,col=2)
+
+
+mincv = which.min(cv.tree1[,4])
+cutoff = cv.tree1[mincv,4] + cv.tree1[mincv,5]
+whichcp = min(which(cv.tree1[,4] < cutoff))
+mycp1 = cv.tree1[whichcp,1]
+mycp1
+
+ 
+ 
+ # Refit tree with optimal complecity
+treefit1 = rpart(house_ins1~., method="class"
+                #,parms=list(split='gini')
+                ,control=rpart.control(cp=0 ,minsplit = 50)
+                ,data=df_fd_3)
+
+```
+
+
+
+```{r}
+vip(treefit1)
+```
+
+```{r}
+#plot tree
+cols = ifelse(treefit1$frame$yval == 2, "darkorange", "darkgreen")
+rpart.plot(treefit1, under=TRUE, faclen=0, extra=106, under.col="black", col=cols)
+
+
+```
+
+```{r}
+#simple tree
+prp(treefit1)
+
+```
+
+
+
